@@ -1,0 +1,93 @@
+name: Build & Release Android App
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build APKs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Grant Execute Permission to Gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug & Release APKs
+        run: ./gradlew assembleDebug assembleRelease --stacktrace
+
+      - name: Prepare APKs for Upload
+        run: |
+          mkdir -p build-artifacts
+          # Locate built APKs
+          DEBUG_APK=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          RELEASE_APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          
+          # Extract clean version info
+          VERSION_NAME="latest"
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION_NAME="${{ github.ref_name }}"
+          fi
+          
+          # Copy to build-artifacts with clean names
+          if [ -f "$DEBUG_APK" ]; then
+            cp "$DEBUG_APK" "build-artifacts/Study-Cycle-${VERSION_NAME}-debug.apk"
+            echo "Copied debug APK"
+          else
+            echo "Debug APK not found"
+            exit 1
+          fi
+          
+          if [ -f "$RELEASE_APK" ]; then
+            cp "$RELEASE_APK" "build-artifacts/Study-Cycle-${VERSION_NAME}-release.apk"
+            echo "Copied release APK"
+          else
+            echo "Release APK not found"
+            exit 1
+          fi
+
+      - name: Upload Build Artifacts to Workflow Run
+        uses: actions/upload-artifact@v4
+        with:
+          name: Study-Cycle-APKs
+          path: build-artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build-artifacts/Study-Cycle-${{ github.ref_name }}-debug.apk
+            build-artifacts/Study-Cycle-${{ github.ref_name }}-release.apk
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
