@@ -19,8 +19,11 @@ jobs:
       - name: Grant permission
         run: chmod +x gradlew
 
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v3
+
       - name: Build APK
-        run: ./gradlew assembleDebug
+        run: gradle assembleDebug
 
       - name: Create Release
         id: create_release
