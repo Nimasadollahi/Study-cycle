@@ -50,13 +50,14 @@ jobs:
       - name: Grant Execute Permission to Gradlew
         run: chmod +x gradlew
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease --stacktrace
+      - name: Build Debug & Release APKs
+        run: ./gradlew assembleDebug assembleRelease --stacktrace
 
-      - name: Prepare APK for Upload
+      - name: Prepare APKs for Upload
         run: |
           mkdir -p build-artifacts
-          # Locate built APK
+          # Locate built APKs
+          DEBUG_APK=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
           RELEASE_APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
           
           # Extract clean version info
@@ -65,7 +66,15 @@ jobs:
             VERSION_NAME="${{ github.ref_name }}"
           fi
           
-          # Copy to build-artifacts with clean name
+          # Copy to build-artifacts with clean names
+          if [ -f "$DEBUG_APK" ]; then
+            cp "$DEBUG_APK" "build-artifacts/Study-Cycle-${VERSION_NAME}-debug.apk"
+            echo "Copied debug APK"
+          else
+            echo "Debug APK not found"
+            exit 1
+          fi
+          
           if [ -f "$RELEASE_APK" ]; then
             cp "$RELEASE_APK" "build-artifacts/Study-Cycle-${VERSION_NAME}-release.apk"
             echo "Copied release APK"
@@ -77,8 +86,8 @@ jobs:
       - name: Upload Build Artifacts to Workflow Run
         uses: actions/upload-artifact@v4
         with:
-          name: Study-Cycle-Release-APK
-          path: build-artifacts/Study-Cycle-*-release.apk
+          name: Study-Cycle-APKs
+          path: build-artifacts/*
           if-no-files-found: error
           retention-days: 14
 
@@ -87,6 +96,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            build-artifacts/Study-Cycle-${{ github.ref_name }}-debug.apk
             build-artifacts/Study-Cycle-${{ github.ref_name }}-release.apk
           name: Release ${{ github.ref_name }}
           draft: false
