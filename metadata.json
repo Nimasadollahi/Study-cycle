@@ -1,0 +1,6 @@
+{
+  "name": "Study Cycle",
+  "description": "Flexible study and break cycle timer with foreground notification and custom tones.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
